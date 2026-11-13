@@ -1,0 +1,288 @@
+# name: test/sql/snmp.test
+# description: SQL-level tests for the snmp worker, run through DuckDB by ci/run-integration.sh
+# group: [snmp]
+#
+# SNMP_AGENT is the local snmpsim agent started by ci/run-integration.sh
+# (test/snmp_agent/serve.py): communities public, private and big (2,500 interfaces),
+# and the SNMPv3 user simulator (SHA auctoritas / AES privatus, context 'public').
+
+require vgi
+
+require-env SNMP_WORKER
+
+require-env SNMP_AGENT
+
+statement ok
+ATTACH 'snmp' (TYPE vgi, LOCATION '{SNMP_WORKER}');
+
+# ---------------------------------------------------------------- offline MIB lookups
+
+query T
+SELECT snmp.main.snmp_oid('IF-MIB::ifInOctets.3');
+----
+1.3.6.1.2.1.2.2.1.10.3
+
+query TT
+SELECT n, snmp.main.snmp_oid(n) FROM (VALUES ('sysUpTime.0'), ('ifHCInOctets'), ('noSuchThing'), (NULL)) t(n) ORDER BY n NULLS LAST;
+----
+ifHCInOctets	1.3.6.1.2.1.31.1.1.1.6
+noSuchThing	NULL
+sysUpTime.0	1.3.6.1.2.1.1.3.0
+NULL	NULL
+
+query T
+SELECT snmp.main.snmp_oid_name(o) FROM (VALUES ('1.3.6.1.2.1.1.3.0'), ('1.3.6.1.4.1.9.1.1'), ('not-an-oid')) t(o) ORDER BY o;
+----
+SNMPv2-MIB::sysUpTime.0
+SNMPv2-SMI::enterprises.9.1.1
+NULL
+
+query I
+SELECT count(*) FROM snmp.main.snmp_mib_objects(module := 'IF-MIB', kind := 'column') WHERE oid LIKE '1.3.6.1.2.1.2.2.1.%';
+----
+22
+
+query T
+SELECT name FROM snmp.main.snmp_mib_objects(module := 'IF-MIB', kind := 'column') WHERE syntax = 'Counter64' ORDER BY string_split(oid, '.')::INTEGER[] LIMIT 2;
+----
+ifHCInOctets
+ifHCInUcastPkts
+
+statement error
+SELECT * FROM snmp.main.snmp_mib_objects(kind := 'gadget');
+----
+<REGEX>:.*
+
+# The table schema comes from the MIB: DESCRIBE needs no agent.
+query TT
+SELECT column_name, column_type FROM (DESCRIBE SELECT _index, ifIndex, ifDescr, ifOperStatus, ifInOctets FROM snmp.main.snmp_table('192.0.2.1', 'ifTable'));
+----
+_index	VARCHAR
+ifIndex	BIGINT
+ifDescr	VARCHAR
+ifOperStatus	VARCHAR
+ifInOctets	BIGINT
+
+query T
+SELECT column_type FROM (DESCRIBE SELECT ifHCInOctets FROM snmp.main.snmp_table('192.0.2.1', 'ifXTable'));
+----
+UBIGINT
+
+# ---------------------------------------------------------------- snmp_get
+
+query TTTT
+SELECT name, type, value, value_int FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', 'sysUpTime.0', 'ifOperStatus.10', 'ifPhysAddress.2', '1.3.6.1.4.1.99999.1.3.0');
+----
+SNMPv2-MIB::sysName.0	OCTET STRING	edge-router-1	NULL
+SNMPv2-MIB::sysUpTime.0	TimeTicks	8640000	8640000
+IF-MIB::ifOperStatus.10	INTEGER	down	2
+IF-MIB::ifPhysAddress.2	OCTET STRING	00:11:22:33:44:55	NULL
+SNMPv2-SMI::enterprises.99999.1.3.0	INTEGER	-42	-42
+
+# Missing instances are rows, not errors.
+query TTT
+SELECT object, instance, type FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysORTable.0', 'ifDescr.99');
+----
+sysORTable	0	noSuchInstance
+ifDescr	99	noSuchInstance
+
+# Counter64 keeps all 64 bits.
+query I
+SELECT value_int = 18446744073709551615 FROM snmp.main.snmp_get('{SNMP_AGENT}', 'ifHCInOctets.2');
+----
+true
+
+query TT
+SELECT type, hex(value_bytes) FROM snmp.main.snmp_get('{SNMP_AGENT}', '1.3.6.1.4.1.99999.1.2.0', '1.3.6.1.2.1.4.20.1.1.192.0.2.254') ORDER BY type;
+----
+IpAddress	C00002FE
+OCTET STRING	00FF10
+
+# SNMPv1 still answers per OID when the agent rejects one of them.
+query TT
+SELECT object, type FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', 'sysORTable.0', 'sysLocation.0', version := '1');
+----
+sysName	OCTET STRING
+sysORTable	noSuchObject
+sysLocation	OCTET STRING
+
+query T
+SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', community := 'private');
+----
+private-view
+
+# The port can be named separately; host:port and port := must agree.
+statement error
+SELECT * FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', port := 1);
+----
+<REGEX>:.*also given.*
+
+statement error
+SELECT * FROM snmp.main.snmp_get('{SNMP_AGENT}', 'notAnObject.0');
+----
+<REGEX>:.*unknown MIB object.*
+
+# A wrong community gets no answer: a timeout naming the agent.
+statement error
+SELECT * FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', community := 'wrong', timeout := 0.2, retries := 0);
+----
+<REGEX>:.*No SNMP response.*
+
+statement error
+SELECT * FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', version := '4');
+----
+<REGEX>:.*
+
+# ---------------------------------------------------------------- snmp_walk
+
+query TT
+SELECT instance, value FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'ifDescr');
+----
+1	lo
+2	eth0
+10	eth1
+
+query IT
+SELECT count(*), string_agg(DISTINCT object, ',' ORDER BY object) FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'system');
+----
+7	sysContact,sysDescr,sysLocation,sysName,sysObjectID,sysServices,sysUpTime
+
+# v1 (GETNEXT) and v2c (GETBULK) walk the same subtree.
+query I
+SELECT count(*) FROM (
+  SELECT oid, value FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'interfaces', version := '1')
+  EXCEPT
+  SELECT oid, value FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'interfaces', max_repetitions := 3)
+);
+----
+0
+
+# A root that is itself an instance is fetched, like snmpwalk does.
+query T
+SELECT value FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'sysName.0');
+----
+edge-router-1
+
+query I
+SELECT count(*) FROM snmp.main.snmp_walk('{SNMP_AGENT}', '1.3.6.1.4.1.99999.9');
+----
+0
+
+# Several batches: 4 columns x 2,500 interfaces.
+query IIR
+SELECT count(*), count(DISTINCT oid), sum(value_int) FILTER (object = 'ifInOctets') FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'ifTable', community := 'big');
+----
+10000	10000	3126250000
+
+query I
+SELECT count(*) FROM (SELECT * FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'ifTable', community := 'big') LIMIT 5);
+----
+5
+
+# ---------------------------------------------------------------- snmp_table
+
+query ITTTT
+SELECT ifIndex, ifName, ifHCInOctets::VARCHAR, ifHighSpeed, ifAlias FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ifXTable') ORDER BY ifIndex;
+----
+1	lo	1000	10	NULL
+2	eth0	18446744073709551615	1000	uplink to core
+10	eth1	0	10000	(empty)
+
+query ITTT
+SELECT ifIndex, ifDescr, ifOperStatus, ifPhysAddress FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ifTable') ORDER BY ifIndex;
+----
+1	lo	up	(empty)
+2	eth0	up	00:11:22:33:44:55
+10	eth1	down	00:11:22:33:44:aa
+
+# Tables augmenting ifTable join on _index.
+query TT
+SELECT t.ifDescr, x.ifName FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ifTable') t JOIN snmp.main.snmp_table('{SNMP_AGENT}', 'ifXTable') x USING (_index) ORDER BY t.ifIndex;
+----
+lo	lo
+eth0	eth0
+eth1	eth1
+
+# INDEX objects are decoded from the instance suffix.
+query TITTT
+SELECT _index, ipNetToPhysicalIfIndex, ipNetToPhysicalNetAddressType, ipNetToPhysicalNetAddress, ipNetToPhysicalType FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ipNetToPhysicalTable') ORDER BY _index;
+----
+2.1.4.192.0.2.1	2	ipv4	192.0.2.1	static
+2.1.4.192.0.2.7	2	ipv4	192.0.2.7	dynamic
+
+query TR
+SELECT hrStorageDescr, round(100.0 * hrStorageUsed / hrStorageSize, 1) FROM snmp.main.snmp_table('{SNMP_AGENT}', 'hrStorageTable') ORDER BY hrStorageIndex;
+----
+Physical memory	75.0
+/	20.0
+
+# Streams across batches; count(*) with nothing projected still counts rows.
+query IIT
+SELECT count(*), sum(ifInOctets), max(ifDescr) FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ifTable', community := 'big', max_repetitions := 50);
+----
+2500	3126250000	port999
+
+query I
+SELECT count(*) FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ifTable', community := 'big');
+----
+2500
+
+query I
+SELECT count(*) FILTER (ifOperStatus = 'up') FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ifTable', community := 'big', version := '1');
+----
+1250
+
+statement error
+SELECT * FROM snmp.main.snmp_table('{SNMP_AGENT}', 'sysDescr');
+----
+<REGEX>:.*not a table.*
+
+# ---------------------------------------------------------------- credentials from secrets
+
+statement ok
+CREATE SECRET snmp_private (TYPE snmp, SCOPE 'snmp://127.0.0.1:', COMMUNITY 'private');
+
+query T
+SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0');
+----
+private-view
+
+# The community argument wins over the secret.
+query T
+SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', community := 'public');
+----
+edge-router-1
+
+# A secret scoped to another host does not apply.
+statement ok
+CREATE OR REPLACE SECRET snmp_private (TYPE snmp, SCOPE 'snmp://192.0.2.99:', COMMUNITY 'private');
+
+query T
+SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0');
+----
+edge-router-1
+
+statement ok
+DROP SECRET snmp_private;
+
+# SNMPv3 authPriv; the version defaults to 3 once a user is configured.
+statement ok
+CREATE SECRET snmp_v3 (TYPE snmp, SCOPE 'snmp://127.0.0.1:', USER 'simulator', AUTH_PROTOCOL 'sha', AUTH_KEY 'auctoritas', PRIV_PROTOCOL 'aes', PRIV_KEY 'privatus');
+
+query T
+SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', context := 'public');
+----
+edge-router-1
+
+query II
+SELECT count(*), sum(ifInOctets) FROM snmp.main.snmp_table('{SNMP_AGENT}', 'ifTable', context := 'public');
+----
+3	4295090751
+
+statement error
+SELECT * FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', context := 'public', version := '2c');
+----
+<REGEX>:.*SNMPv3 only.*
+
+statement ok
+DROP SECRET snmp_v3;
