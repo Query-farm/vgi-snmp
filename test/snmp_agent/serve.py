@@ -19,6 +19,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -47,6 +48,24 @@ def _big_device() -> list[str]:
         lines.append(f"1.3.6.1.2.1.2.2.1.8.{i}|2|{1 if i % 2 else 2}")
         lines.append(f"1.3.6.1.2.1.2.2.1.10.{i}|65|{i * 1000}")
     return lines
+
+
+READY_TIMEOUT = 180.0
+
+# SNMPv2c GET sysDescr.0, community "public", request-id 1 (hand-encoded BER).
+_PROBE = bytes.fromhex("302902010104067075626c6963a01c020400000001020100020100300e300c06082b060102010101000500")
+
+
+def _answers(port: int) -> bool:
+    """Send one GET and report whether the agent replied within a second."""
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(1.0)
+        try:
+            sock.sendto(_PROBE, ("127.0.0.1", port))
+            sock.recvfrom(4096)
+        except OSError:
+            return False
+        return True
 
 
 def _free_udp_port() -> int:
@@ -82,7 +101,8 @@ def main() -> None:
         "--logging-method=stderr",
         "--log-level=error",
     ]
-    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=env)
 
     def stop(*_: object) -> None:
         child.terminate()
@@ -92,22 +112,24 @@ def main() -> None:
     signal.signal(signal.SIGTERM, stop)
     signal.signal(signal.SIGINT, stop)
 
-    assert child.stdout is not None
-    for line in child.stdout:
-        sys.stderr.write(line)
-        if "Listening at" in line:
-            break
-    else:
-        sys.stderr.write("snmpsim exited before listening\n")
-        sys.exit(1)
-    print(f"PORT:{port}", flush=True)
-
     def drain() -> None:
         assert child.stdout is not None
         for line in child.stdout:
             sys.stderr.write(line)
 
     threading.Thread(target=drain, daemon=True).start()
+
+    # Ready means answering SNMP, not having logged a line (pipes are buffered on Windows).
+    deadline = time.monotonic() + READY_TIMEOUT
+    while not _answers(port):
+        if child.poll() is not None:
+            sys.stderr.write("snmpsim exited before answering\n")
+            sys.exit(1)
+        if time.monotonic() > deadline:
+            sys.stderr.write(f"snmpsim did not answer within {READY_TIMEOUT:g}s\n")
+            child.terminate()
+            sys.exit(1)
+    print(f"PORT:{port}", flush=True)
     child.wait()
     shutil.rmtree(work, ignore_errors=True)
 

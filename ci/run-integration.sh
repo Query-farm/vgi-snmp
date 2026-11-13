@@ -62,7 +62,8 @@ start_server() {
   "$@" >"$log" 2>&1 &
   local pid=$!
   PIDS+=("$pid")
-  for _ in $(seq 1 120); do
+  # 3 minutes: the snmpsim agent indexes its data files on first start (slow on Windows runners).
+  for _ in $(seq 1 360); do
     kill -0 "$pid" 2>/dev/null || { echo "::error::'$*' exited early:"; cat "$log"; return 1; }
     PORT="$(sed -n 's/^PORT:\([0-9][0-9]*\).*/\1/p' "$log" | head -1)"
     [ -n "$PORT" ] && return 0
