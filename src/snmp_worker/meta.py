@@ -143,6 +143,14 @@ AGENT_TEST_TASKS = [
         ),
     },
     {
+        "name": "hc_counter_oids_for_interface",
+        "prompt": (
+            "I need to poll interface ifIndex 7 with a tool that only takes numeric OIDs. Using the snmp "
+            "worker's MIBs, list every IF-MIB column whose syntax is Counter64 together with the numeric OID "
+            "of its instance for ifIndex 7. Return two columns: name and oid, in OID order."
+        ),
+    },
+    {
         "name": "walk_result_columns",
         "prompt": "How many columns does the snmp worker's subtree walk return? Answer without contacting a device.",
     },

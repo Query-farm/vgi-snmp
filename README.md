@@ -95,6 +95,17 @@ JOIN snmp.main.snmp_table('10.0.0.1', 'ifXTable') x USING (_index);
 `TimeTicks` are hundredths of a second (`sysUpTime.0 / 8640000.0` days). OIDs are
 `VARCHAR`; sort them numerically with `ORDER BY string_split(oid, '.')::INTEGER[]`.
 
+OID-valued columns decode offline with `snmp_oid_name`. `hrStorageType`, for example,
+tells RAM from fixed disks:
+
+```sql
+SELECT split_part(snmp.main.snmp_oid_name(hrStorageType), '::', 2) AS storage_type,
+       hrStorageDescr,
+       round(hrStorageUsed * hrStorageAllocationUnits / 1e9, 2) AS used_gb
+FROM snmp.main.snmp_table('10.0.0.1', 'hrStorageTable')
+ORDER BY storage_type, hrStorageDescr;
+```
+
 ### Connection arguments
 
 Every device function takes these named arguments:

@@ -237,6 +237,41 @@ SELECT * FROM snmp.main.snmp_table('{SNMP_AGENT}', 'sysDescr');
 ----
 <REGEX>:.*not a table.*
 
+# ---------------------------------------------------------------- composed examples
+# The published examples that combine several functions, run against the local agent.
+
+# Instances sort numerically (ifIndex 10 after 2).
+query TT
+SELECT instance AS if_index, value AS interface FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'ifDescr') ORDER BY instance::INTEGER;
+----
+1	lo
+2	eth0
+10	eth1
+
+query TT
+SELECT max(value) FILTER (WHERE object = 'sysName') AS sys_name, snmp.main.snmp_oid_name(max(value) FILTER (WHERE object = 'sysObjectID')) AS platform FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', 'sysObjectID.0');
+----
+edge-router-1	NET-SNMP-MIB::netSnmpAgentOIDs.10
+
+query TTT
+SELECT w.object, w.value, o.syntax FROM snmp.main.snmp_walk('{SNMP_AGENT}', 'system') w JOIN snmp.main.snmp_mib_objects(module := 'SNMPv2-MIB', kind := 'scalar') o ON o.name = w.object WHERE o.access = 'read-write' ORDER BY string_split(w.oid, '.')::INTEGER[];
+----
+sysContact	noc@example.com	DisplayString
+sysName	edge-router-1	DisplayString
+sysLocation	Rack 4, Example DC	DisplayString
+
+query TTRR
+SELECT split_part(snmp.main.snmp_oid_name(hrStorageType), '::', 2) AS storage_type, hrStorageDescr, round(hrStorageUsed * hrStorageAllocationUnits / 1e9, 2) AS used_gb, round(100.0 * hrStorageUsed / nullif(hrStorageSize, 0), 1) AS pct_used FROM snmp.main.snmp_table('{SNMP_AGENT}', 'hrStorageTable') ORDER BY storage_type, hrStorageDescr;
+----
+hrStorageFixedDisk	/	20.48	20.0
+hrStorageRam	Physical memory	6.14	75.0
+
+query TT
+SELECT name, snmp.main.snmp_oid('IF-MIB::' || name || '.7') AS oid FROM snmp.main.snmp_mib_objects(module := 'IF-MIB', kind := 'column') WHERE syntax = 'Counter64' ORDER BY string_split(oid, '.')::INTEGER[] LIMIT 2;
+----
+ifHCInOctets	1.3.6.1.2.1.31.1.1.1.6.7
+ifHCInUcastPkts	1.3.6.1.2.1.31.1.1.1.7.7
+
 # ---------------------------------------------------------------- credentials from secrets
 
 statement ok

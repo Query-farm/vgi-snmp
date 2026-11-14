@@ -121,6 +121,17 @@ class SnmpGet(TableFunctionGenerator[GetArgs, GetState]):
                 ),
                 description="Uptime in days from sysUpTime (hundredths of a second)",
             ),
+            FunctionExample(
+                sql=(
+                    "SELECT max(value) FILTER (WHERE object = 'sysName') AS sys_name, "
+                    "snmp.main.snmp_oid_name(max(value) FILTER (WHERE object = 'sysObjectID')) AS platform "
+                    "FROM snmp.main.snmp_get('192.0.2.20', 'sysName.0', 'sysObjectID.0')"
+                ),
+                description=(
+                    "One row per device: its name and its platform, the sysObjectID OID named offline with "
+                    "snmp_oid_name (for example 'NET-SNMP-MIB::netSnmpAgentOIDs.10' for a Linux Net-SNMP agent)"
+                ),
+            ),
         ]
 
     @classmethod

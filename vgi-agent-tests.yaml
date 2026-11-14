@@ -14,6 +14,11 @@ tasks:
     reference_sql: >-
       SELECT name FROM snmp.main.snmp_mib_objects(module := 'IF-MIB', kind := 'column')
       WHERE syntax = 'Counter64' ORDER BY string_split(oid, '.')::INTEGER[]
+  - name: hc_counter_oids_for_interface
+    reference_sql: >-
+      SELECT name, snmp.main.snmp_oid('IF-MIB::' || name || '.7') AS oid
+      FROM snmp.main.snmp_mib_objects(module := 'IF-MIB', kind := 'column')
+      WHERE syntax = 'Counter64' ORDER BY string_split(oid, '.')::INTEGER[]
   # Device functions bind offline (schemas come from the MIBs), so DESCRIBE grades them without an agent.
   - name: ifxtable_counter_type
     reference_sql: >-

@@ -111,7 +111,7 @@ class SnmpWalk(TableFunctionGenerator[WalkArgs, WalkState]):
             FunctionExample(
                 sql=(
                     "SELECT instance AS if_index, value AS interface "
-                    "FROM snmp.main.snmp_walk('192.0.2.10', 'ifDescr') ORDER BY value_int NULLS LAST, instance"
+                    "FROM snmp.main.snmp_walk('192.0.2.10', 'ifDescr') ORDER BY instance::INTEGER"
                 ),
                 description="List interface names by ifIndex",
             ),
@@ -121,6 +121,17 @@ class SnmpWalk(TableFunctionGenerator[WalkArgs, WalkState]):
                     "GROUP BY object ORDER BY instances DESC LIMIT 10"
                 ),
                 description="Which MIB-2 objects does a device populate most?",
+            ),
+            FunctionExample(
+                sql=(
+                    "SELECT w.object, w.value, o.syntax FROM snmp.main.snmp_walk('192.0.2.20', 'system') w "
+                    "JOIN snmp.main.snmp_mib_objects(module := 'SNMPv2-MIB', kind := 'scalar') o ON o.name = w.object "
+                    "WHERE o.access = 'read-write' ORDER BY string_split(w.oid, '.')::INTEGER[]"
+                ),
+                description=(
+                    "Current values of the system-group objects an SNMP SET can change (sysContact, sysName, "
+                    "sysLocation), by joining the walk to the MIB's MAX-ACCESS"
+                ),
             ),
         ]
 

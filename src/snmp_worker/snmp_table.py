@@ -196,6 +196,18 @@ class SnmpTable(TableFunctionGenerator[TableArgs, TableState]):
                 ),
                 description="Disk and memory utilisation from HOST-RESOURCES-MIB",
             ),
+            FunctionExample(
+                sql=(
+                    "SELECT split_part(snmp.main.snmp_oid_name(hrStorageType), '::', 2) AS storage_type, "
+                    "hrStorageDescr, round(hrStorageUsed * hrStorageAllocationUnits / 1e9, 2) AS used_gb, "
+                    "round(100.0 * hrStorageUsed / nullif(hrStorageSize, 0), 1) AS pct_used "
+                    "FROM snmp.main.snmp_table('192.0.2.20', 'hrStorageTable') ORDER BY storage_type, hrStorageDescr"
+                ),
+                description=(
+                    "Storage areas labelled by type (hrStorageRam, hrStorageFixedDisk, ...) by decoding the "
+                    "hrStorageType OID with snmp_oid_name, with used space in GB (used units times allocation units)"
+                ),
+            ),
         ]
 
     @classmethod

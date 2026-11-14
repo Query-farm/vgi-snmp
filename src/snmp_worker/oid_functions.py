@@ -13,6 +13,20 @@ from vgi.scalar_function import ScalarFunction
 from .meta import object_tags
 from .mib import MibError, mibs, oid_str
 
+# Composed with snmp_mib_objects: decode OIDs (from a trap or a log) and look up each object's
+# syntax and UNITS. Offline and deterministic, so it is also an executable example.
+DECODE_OIDS_SQL = (
+    "WITH named AS (SELECT oid, snmp.main.snmp_oid_name(oid) AS name FROM (VALUES "
+    "('1.3.6.1.2.1.31.1.1.1.15.3'), ('1.3.6.1.2.1.25.2.3.1.4.1'), ('1.3.6.1.2.1.31.1.1.1.6.3')) t(oid)) "
+    "SELECT n.oid, n.name, o.syntax, o.units FROM named n JOIN snmp.main.snmp_mib_objects() o "
+    "ON o.module = split_part(n.name, '::', 1) AND o.name = split_part(split_part(n.name, '::', 2), '.', 1) "
+    "ORDER BY string_split(n.oid, '.')::INTEGER[]"
+)
+DECODE_OIDS_DESCRIPTION = (
+    "Decode numeric OIDs from a trap or log: name each with snmp_oid_name, then join snmp_mib_objects "
+    "for the object's syntax and UNITS clause (NULL when the MIB declares none)"
+)
+
 
 def to_oid(values: list[str | None]) -> list[str | None]:
     """Numeric OID for each name; None for NULL or unresolvable input."""
@@ -140,6 +154,20 @@ class SnmpOidName(ScalarFunction):
                         "sql": "SELECT snmp.main.snmp_oid_name('1.3.6.1.2.1.2.2.1.10.3') AS name",
                         "expected_result": [["IF-MIB::ifInOctets.3"]],
                     },
+                    {
+                        "description": DECODE_OIDS_DESCRIPTION,
+                        "sql": DECODE_OIDS_SQL,
+                        "expected_result": [
+                            [
+                                "1.3.6.1.2.1.25.2.3.1.4.1",
+                                "HOST-RESOURCES-MIB::hrStorageAllocationUnits.1",
+                                "Integer32",
+                                "Bytes",
+                            ],
+                            ["1.3.6.1.2.1.31.1.1.1.6.3", "IF-MIB::ifHCInOctets.3", "Counter64", None],
+                            ["1.3.6.1.2.1.31.1.1.1.15.3", "IF-MIB::ifHighSpeed.3", "Gauge32", None],
+                        ],
+                    },
                 ]
             ),
         }
@@ -155,6 +183,7 @@ class SnmpOidName(ScalarFunction):
                 ),
                 description="Name a column of OIDs, including an unknown vendor OID",
             ),
+            FunctionExample(sql=DECODE_OIDS_SQL, description=DECODE_OIDS_DESCRIPTION),
         ]
 
     @classmethod
