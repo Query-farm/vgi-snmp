@@ -1,0 +1,10 @@
+{
+  "provenance": "All labels, counts and uptime invented for this notebook; no device capture.",
+  "format": "snmpsim snmprec numeric OID | ASN.1 tag | value",
+  "sha256": "ecfb8c618c7ffe901085c049778b1f1d93761c25128f0a22c55dcfc40b3b2359",
+  "rows": 5,
+  "allocation_unit": "bytes per allocation unit",
+  "size_and_used_units": "allocation units",
+  "uptime_unit": "hundredths of a second",
+  "time": "Static synthetic fixture; no observation timestamp or rate inference."
+}

@@ -237,3 +237,7 @@ Net-SNMP MIB definitions under their own terms; see
 [`src/snmp_worker/mibs/README.md`](src/snmp_worker/mibs/README.md).
 
 Copyright 2026 Query Farm LLC - https://query.farm
+
+## Executed notebooks
+
+[Storage units and alert thresholds](notebooks/README.md) — query a synthetic local SNMP agent and compare percentage utilization with absolute free capacity.
