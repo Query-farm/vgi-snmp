@@ -46,3 +46,12 @@ Twelve SQL checks cover identity, exact byte arithmetic, unit conversion, bounds
 Saved default outputs are embedded. Generated charts, logs and experiment copies are ignored under `validation/`; experiment copies carry their relative helpers, fixtures and branding. [STANDARD.md](STANDARD.md) records presentation conventions.
 
 Source `make check` with the published Haybarn unittest runner passed: 18 pytest tests, 189 stdio assertions, 189 Unix-launch assertions and 152 HTTP assertions; Ruff/format, mypy, pydoclint and metadata 100/100 L2 with zero findings.
+
+## SQL credential isolation
+
+The notebook creates Haybarn with a fresh temporary `secret_directory` and
+`allow_persistent_secrets=False` before attaching workers. It fully drains and
+checks an empty secret inventory. This example needs no saved SQL credential;
+its explicit public-data or local-fixture configuration remains in effect.
+Cleanup removes the temporary directory after closing the connection.
+Existing user SQL secrets are neither read, modified nor deleted.
