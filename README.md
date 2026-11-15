@@ -42,7 +42,7 @@ CREATE EXTENSION REPOSITORY IF NOT EXISTS query_farm WITH PREFIX 'https://duckdb
 INSTALL vgi FROM query_farm;
 LOAD vgi FROM query_farm;
 
-ATTACH 'snmp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-snmp@v0.1.0 vgi-snmp-worker');
+ATTACH 'snmp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-snmp@v0.1.1 vgi-snmp-worker');
 ```
 
 On Haybarn use `INSTALL vgi FROM community; LOAD vgi;` instead of the first four lines.

@@ -73,6 +73,14 @@ CONNECTION_DOC_MD = (
     "`snmp` secret scoped to `snmp://<host>` or from `SNMP_*` environment variables; see the README."
 )
 
+# The catalog's one-line description (VGI001): plain text, one paragraph, at most 300
+# characters. The long-form docs live in the ``vgi.doc_md`` and ``vgi.doc_llm`` tags.
+CATALOG_COMMENT = (
+    "Queries SNMP v1, v2c and v3 network devices such as routers, switches, servers and printers, "
+    "returning variable bindings and MIB tables as typed rows, with offline lookups over the "
+    "bundled IETF and Net-SNMP MIB modules."
+)
+
 CATALOG_DOC_LLM = (
     "Query SNMP agents (routers, switches, servers, printers, UPS units) from SQL. Device queries "
     "are table functions that take the agent address first and return either raw variable bindings "

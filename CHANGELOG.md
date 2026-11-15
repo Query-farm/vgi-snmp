@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.1 (2026-11-14)
+
+- The catalog comment (the worker's one-line description in directories) is now a short
+  plain-text sentence instead of the Markdown overview, which stays in the catalog's
+  `vgi.doc_md` tag.
+- Composed example queries combining device queries with MIB lookups. The SQL surface is unchanged.
+
 ## 0.1.0 (2026-11-12)
 
 First release.
