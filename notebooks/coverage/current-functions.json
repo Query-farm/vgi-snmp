@@ -1,0 +1,307 @@
+{
+  "query": "SELECT * FROM duckdb_functions() WHERE database_name='snmp'",
+  "columns": [
+    "database_name",
+    "database_oid",
+    "schema_name",
+    "function_name",
+    "alias_of",
+    "function_type",
+    "description",
+    "comment",
+    "tags",
+    "return_type",
+    "parameters",
+    "parameter_types",
+    "varargs",
+    "macro_definition",
+    "has_side_effects",
+    "internal",
+    "extension_name",
+    "function_oid",
+    "examples",
+    "stability",
+    "categories"
+  ],
+  "rows": [
+    [
+      "snmp",
+      "22595",
+      "main",
+      "snmp_walk",
+      null,
+      "table",
+      "Walk an SNMP subtree (GETBULK/GETNEXT) and return every instance under it",
+      null,
+      {
+        "vgi.category": "snmp",
+        "vgi.doc_llm": "Walk every instance below the subtree `oid` on the agent at `host` and return one row per instance, in OID order: `host, oid, name, object, instance, type, value, value_int, value_bytes`. `oid` is numeric or a MIB name without instance suffix ('system', 'ifTable', 'ifHCInOctets', 'hrStorageTable'). Rows stream in batches, so LIMIT stops the walk early. Uses GETBULK with `max_repetitions` (named, default 25) on v2c/v3 and GETNEXT on v1. Use snmp_table instead when you want one row per table row with typed columns; use snmp_walk for raw subtrees, vendor MIBs this worker does not know, or discovery. Connection named arguments: `version` ('1', '2c' or '3'; default '3' when a v3 user is configured, else '2c'), `community`, `port` (default 161; 'host:port' also works), `timeout` (seconds per attempt, default 2), `retries` (default 1) and `context` (SNMPv3 context name). Credentials come from the `community` argument, else from a DuckDB secret of type `snmp` whose SCOPE is a prefix of 'snmp://<host>:<port>', else from the SNMP_COMMUNITY, SNMP_USER, SNMP_AUTH_PROTOCOL, SNMP_AUTH_KEY, SNMP_PRIV_PROTOCOL and SNMP_PRIV_KEY environment variables, else the community 'public'. A v3 secret looks like:\n\n```sql\nCREATE SECRET (TYPE snmp, SCOPE 'snmp://10.0.0.', USER 'monitor', AUTH_PROTOCOL 'sha256',\n  AUTH_KEY 'auth-passphrase', PRIV_PROTOCOL 'aes', PRIV_KEY 'priv-passphrase');\n```\n\nA timeout or wrong credentials raise an error that names the agent.",
+        "vgi.doc_md": "## snmp_walk(host, oid, max_repetitions := 25)\n\nEvery instance under a subtree, like `snmpbulkwalk`.\n\nRows stream in OID order, so `LIMIT` ends the walk early.\n\n**Connection:** `version := '1' | '2c' | '3'`, `community := '...'`, `port := 161`, `timeout := 2.0`, `retries := 1`, `context := ''`. Credentials can also come from a `snmp` secret scoped to `snmp://<host>` or from `SNMP_*` environment variables; see the README.",
+        "vgi.example_queries": "[{\"description\": \"List interface names by ifIndex\", \"sql\": \"SELECT instance AS if_index, value AS interface FROM snmp.main.snmp_walk('192.0.2.10', 'ifDescr') ORDER BY instance::INTEGER\"}, {\"description\": \"Which MIB-2 objects does a device populate most?\", \"sql\": \"SELECT object, count(*) AS instances FROM snmp.main.snmp_walk('192.0.2.10', 'mib-2') GROUP BY object ORDER BY instances DESC LIMIT 10\"}, {\"description\": \"Current values of the system-group objects an SNMP SET can change (sysContact, sysName, sysLocation), by joining the walk to the MIB's MAX-ACCESS\", \"sql\": \"SELECT w.object, w.value, o.syntax FROM snmp.main.snmp_walk('192.0.2.20', 'system') w JOIN snmp.main.snmp_mib_objects(module := 'SNMPv2-MIB', kind := 'scalar') o ON o.name = w.object WHERE o.access = 'read-write' ORDER BY string_split(w.oid, '.')::INTEGER[]\"}]",
+        "vgi.keywords": "[\"snmp walk\", \"snmpwalk\", \"snmpbulkwalk\", \"getbulk\", \"getnext\", \"subtree\", \"mib\", \"interfaces\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"host\", \"type\": \"VARCHAR\", \"description\": \"The agent queried, as given in the host argument.\"}, {\"name\": \"oid\", \"type\": \"VARCHAR\", \"description\": \"Numeric OID of the returned instance.\"}, {\"name\": \"name\", \"type\": \"VARCHAR\", \"description\": \"Symbolic name from the loaded MIBs, e.g. 'SNMPv2-MIB::sysDescr.0'.\"}, {\"name\": \"object\", \"type\": \"VARCHAR\", \"description\": \"The MIB object the instance belongs to, e.g. 'ifInOctets'.\"}, {\"name\": \"instance\", \"type\": \"VARCHAR\", \"description\": \"Instance suffix after the object's OID, e.g. '3'.\"}, {\"name\": \"type\", \"type\": \"VARCHAR\", \"description\": \"SNMP type, or noSuchObject / noSuchInstance.\"}, {\"name\": \"value\", \"type\": \"VARCHAR\", \"description\": \"Display value formatted by the MIB.\"}, {\"name\": \"value_int\", \"type\": \"DECIMAL(20,0)\", \"description\": \"Exact value of integer types.\"}, {\"name\": \"value_bytes\", \"type\": \"BLOB\", \"description\": \"Raw octets of string-like values.\"}]",
+        "vgi.title": "SNMP Walk"
+      },
+      null,
+      [
+        "host",
+        "oid",
+        "version",
+        "retries",
+        "community",
+        "port",
+        "max_repetitions",
+        "timeout",
+        "context"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR",
+        "BIGINT",
+        "VARCHAR",
+        "BIGINT",
+        "BIGINT",
+        "DOUBLE",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22604,
+      [
+        "SELECT instance AS if_index, value AS interface FROM snmp.main.snmp_walk('192.0.2.10', 'ifDescr') ORDER BY instance::INTEGER",
+        "SELECT object, count(*) AS instances FROM snmp.main.snmp_walk('192.0.2.10', 'mib-2') GROUP BY object ORDER BY instances DESC LIMIT 10",
+        "SELECT w.object, w.value, o.syntax FROM snmp.main.snmp_walk('192.0.2.20', 'system') w JOIN snmp.main.snmp_mib_objects(module := 'SNMPv2-MIB', kind := 'scalar') o ON o.name = w.object WHERE o.access = 'read-write' ORDER BY string_split(w.oid, '.')::INTEGER[]"
+      ],
+      null,
+      []
+    ],
+    [
+      "snmp",
+      "22595",
+      "main",
+      "snmp_table",
+      null,
+      "table",
+      "Read an SNMP MIB table (ifTable, hrStorageTable, ...) as typed rows, one per table row",
+      null,
+      {
+        "vgi.category": "snmp",
+        "vgi.doc_llm": "Read a MIB conceptual table from the agent at `host`, one row per table row, with one typed column per readable MIB column. The table can be named by the table, its entry, one of its columns or its numeric OID. Column names are the MIB object names (ifDescr, ifOperStatus, ifHCInOctets). Enumerations become their labels ('up', 'down'), Counter64 becomes `UBIGINT`, other integers `BIGINT`, and everything else `VARCHAR` display text. `_index` is the row's instance suffix, and the INDEX objects (such as ifIndex) are decoded from it. Only the columns the query uses are fetched. The schema comes from the MIB, so describing the query lists the columns without contacting the agent, and the MIB object listing shows which tables exist. Tables that augment another (ifXTable augments ifTable) share its index and combine by `_index`. For tables of MIBs this worker does not load, walk the subtree instead. Connection named arguments: `version` ('1', '2c' or '3'; default '3' when a v3 user is configured, else '2c'), `community`, `port` (default 161; 'host:port' also works), `timeout` (seconds per attempt, default 2), `retries` (default 1) and `context` (SNMPv3 context name). Credentials come from the `community` argument, else from a DuckDB secret of type `snmp` whose SCOPE is a prefix of 'snmp://<host>:<port>', else from the SNMP_COMMUNITY, SNMP_USER, SNMP_AUTH_PROTOCOL, SNMP_AUTH_KEY, SNMP_PRIV_PROTOCOL and SNMP_PRIV_KEY environment variables, else the community 'public'. A v3 secret looks like:\n\n```sql\nCREATE SECRET (TYPE snmp, SCOPE 'snmp://10.0.0.', USER 'monitor', AUTH_PROTOCOL 'sha256',\n  AUTH_KEY 'auth-passphrase', PRIV_PROTOCOL 'aes', PRIV_KEY 'priv-passphrase');\n```\n\nA timeout or wrong credentials raise an error that names the agent.",
+        "vgi.doc_md": "## snmp_table(host, table, max_repetitions := 25)\n\nA MIB table as rows with typed columns, like `snmptable`. Only projected columns are walked.\n\n**Connection:** `version := '1' | '2c' | '3'`, `community := '...'`, `port := 161`, `timeout := 2.0`, `retries := 1`, `context := ''`. Credentials can also come from a `snmp` secret scoped to `snmp://<host>` or from `SNMP_*` environment variables; see the README.",
+        "vgi.example_queries": "[{\"description\": \"The five busiest interfaces by received octets\", \"sql\": \"SELECT ifName, ifHCInOctets, ifHCOutOctets FROM snmp.main.snmp_table('192.0.2.10', 'ifXTable') ORDER BY ifHCInOctets DESC LIMIT 5\"}, {\"description\": \"Disk and memory utilisation from HOST-RESOURCES-MIB\", \"sql\": \"SELECT hrStorageDescr, round(100.0 * hrStorageUsed / nullif(hrStorageSize, 0), 1) AS pct_used FROM snmp.main.snmp_table('192.0.2.10', 'hrStorageTable') ORDER BY pct_used DESC NULLS LAST\"}, {\"description\": \"Storage areas labelled by type (hrStorageRam, hrStorageFixedDisk, ...) by decoding the hrStorageType OID with snmp_oid_name, with used space in GB (used units times allocation units)\", \"sql\": \"SELECT split_part(snmp.main.snmp_oid_name(hrStorageType), '::', 2) AS storage_type, hrStorageDescr, round(hrStorageUsed * hrStorageAllocationUnits / 1e9, 2) AS used_gb, round(100.0 * hrStorageUsed / nullif(hrStorageSize, 0), 1) AS pct_used FROM snmp.main.snmp_table('192.0.2.20', 'hrStorageTable') ORDER BY storage_type, hrStorageDescr\"}]",
+        "vgi.keywords": "[\"snmp table\", \"snmptable\", \"ifTable\", \"ifXTable\", \"hrStorageTable\", \"interfaces\", \"counters\", \"mib table\"]",
+        "vgi.result_dynamic_columns_md": "The columns depend on the `table` argument and come from its MIB definition: `_index`, then the INDEX objects decoded from it, then one column per readable column object. Counter64 is `UBIGINT`, other integers `BIGINT`, enumerations and everything else `VARCHAR`. Common tables:\n\n**`table` = 'IF-MIB::ifXTable'**:\n\n| Name | Type | Description |\n|---|---|---|\n| _index | VARCHAR | Instance suffix |\n| ifIndex | BIGINT | InterfaceIndex |\n| ifName | VARCHAR | DisplayString |\n| ifInMulticastPkts | BIGINT | Counter32 |\n| ifInBroadcastPkts | BIGINT | Counter32 |\n| ifOutMulticastPkts | BIGINT | Counter32 |\n| ifOutBroadcastPkts | BIGINT | Counter32 |\n| ifHCInOctets | UBIGINT | Counter64 |\n| ifHCInUcastPkts | UBIGINT | Counter64 |\n| ifHCInMulticastPkts | UBIGINT | Counter64 |\n| ifHCInBroadcastPkts | UBIGINT | Counter64 |\n| ifHCOutOctets | UBIGINT | Counter64 |\n| ifHCOutUcastPkts | UBIGINT | Counter64 |\n| ifHCOutMulticastPkts | UBIGINT | Counter64 |\n| ifHCOutBroadcastPkts | UBIGINT | Counter64 |\n| ifLinkUpDownTrapEnable | VARCHAR | Integer32 |\n| ifHighSpeed | BIGINT | Gauge32 |\n| ifPromiscuousMode | VARCHAR | TruthValue |\n| ifConnectorPresent | VARCHAR | TruthValue |\n| ifAlias | VARCHAR | DisplayString |\n| ifCounterDiscontinuityTime | BIGINT | TimeStamp |\n\n\n**`table` = 'HOST-RESOURCES-MIB::hrStorageTable'**:\n\n| Name | Type | Description |\n|---|---|---|\n| _index | VARCHAR | Instance suffix |\n| hrStorageIndex | BIGINT | Integer32 |\n| hrStorageType | VARCHAR | AutonomousType |\n| hrStorageDescr | VARCHAR | DisplayString |\n| hrStorageAllocationUnits | BIGINT | Integer32 |\n| hrStorageSize | BIGINT | Integer32 |\n| hrStorageUsed | BIGINT | Integer32 |\n| hrStorageAllocationFailures | BIGINT | Counter32 |\n",
+        "vgi.title": "SNMP Table"
+      },
+      null,
+      [
+        "host",
+        "mib_table",
+        "version",
+        "retries",
+        "community",
+        "port",
+        "max_repetitions",
+        "timeout",
+        "context"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR",
+        "BIGINT",
+        "VARCHAR",
+        "BIGINT",
+        "BIGINT",
+        "DOUBLE",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22603,
+      [
+        "SELECT ifName, ifHCInOctets, ifHCOutOctets FROM snmp.main.snmp_table('192.0.2.10', 'ifXTable') ORDER BY ifHCInOctets DESC LIMIT 5",
+        "SELECT hrStorageDescr, round(100.0 * hrStorageUsed / nullif(hrStorageSize, 0), 1) AS pct_used FROM snmp.main.snmp_table('192.0.2.10', 'hrStorageTable') ORDER BY pct_used DESC NULLS LAST",
+        "SELECT split_part(snmp.main.snmp_oid_name(hrStorageType), '::', 2) AS storage_type, hrStorageDescr, round(hrStorageUsed * hrStorageAllocationUnits / 1e9, 2) AS used_gb, round(100.0 * hrStorageUsed / nullif(hrStorageSize, 0), 1) AS pct_used FROM snmp.main.snmp_table('192.0.2.20', 'hrStorageTable') ORDER BY storage_type, hrStorageDescr"
+      ],
+      null,
+      []
+    ],
+    [
+      "snmp",
+      "22595",
+      "main",
+      "snmp_mib_objects",
+      null,
+      "table",
+      "List the objects (tables, columns, scalars) defined by the loaded MIB modules",
+      null,
+      {
+        "vgi.category": "mib",
+        "vgi.doc_llm": "List every named object in the MIB modules this worker has loaded, offline: module, name, oid, kind (scalar/table/row/column/notification/node), syntax, access, status, units and description. Filter with the named arguments `module := 'IF-MIB'` and `kind := 'table'`. Use it to discover which tables snmp_table can read and which columns they have (a column's oid starts with its row's oid), and which scalars snmp_get can read (append '.0').",
+        "vgi.doc_md": "## snmp_mib_objects(module := NULL, kind := NULL)\n\nBrowse the loaded MIBs: tables `snmp_table` can read, and the scalars and columns `snmp_get` and `snmp_walk` can name.",
+        "vgi.example_queries": "[{\"description\": \"Which loaded MIB modules define the most tables?\", \"sql\": \"SELECT module, count(*) AS tables FROM snmp.main.snmp_mib_objects(kind := 'table') GROUP BY module ORDER BY tables DESC\"}, {\"description\": \"Net-SNMP memory statistics available with snmp_get\", \"sql\": \"SELECT name, syntax, units FROM snmp.main.snmp_mib_objects(module := 'UCD-SNMP-MIB', kind := 'scalar') WHERE name LIKE 'mem%' ORDER BY oid\"}]",
+        "vgi.executable_examples": "[{\"description\": \"The 64-bit counters in IF-MIB\", \"sql\": \"SELECT name FROM snmp.main.snmp_mib_objects(module := 'IF-MIB', kind := 'column') WHERE syntax = 'Counter64' ORDER BY name LIMIT 3\", \"expected_result\": [[\"ifHCInBroadcastPkts\"], [\"ifHCInMulticastPkts\"], [\"ifHCInOctets\"]]}, {\"description\": \"Columns of hrStorageTable\", \"sql\": \"SELECT count(*) AS columns FROM snmp.main.snmp_mib_objects(module := 'HOST-RESOURCES-MIB', kind := 'column') WHERE oid LIKE '1.3.6.1.2.1.25.2.3.1.%'\", \"expected_result\": [[7]]}]",
+        "vgi.keywords": "[\"mib browser\", \"mib objects\", \"tables\", \"columns\", \"oid list\", \"syntax\", \"description\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"module\", \"type\": \"VARCHAR\", \"description\": \"MIB module defining the object.\"}, {\"name\": \"name\", \"type\": \"VARCHAR\", \"description\": \"Object name.\"}, {\"name\": \"oid\", \"type\": \"VARCHAR\", \"description\": \"Numeric OID of the object.\"}, {\"name\": \"kind\", \"type\": \"VARCHAR\", \"description\": \"scalar, table, row, column, notification or node.\"}, {\"name\": \"syntax\", \"type\": \"VARCHAR\", \"description\": \"Syntax or textual convention.\"}, {\"name\": \"access\", \"type\": \"VARCHAR\", \"description\": \"MAX-ACCESS.\"}, {\"name\": \"status\", \"type\": \"VARCHAR\", \"description\": \"STATUS.\"}, {\"name\": \"units\", \"type\": \"VARCHAR\", \"description\": \"UNITS clause.\"}, {\"name\": \"description\", \"type\": \"VARCHAR\", \"description\": \"DESCRIPTION clause.\"}]",
+        "vgi.title": "MIB Objects"
+      },
+      null,
+      [
+        "module",
+        "kind"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22602,
+      [
+        "SELECT module, count(*) AS tables FROM snmp.main.snmp_mib_objects(kind := 'table') GROUP BY module ORDER BY tables DESC",
+        "SELECT name, syntax, units FROM snmp.main.snmp_mib_objects(module := 'UCD-SNMP-MIB', kind := 'scalar') WHERE name LIKE 'mem%' ORDER BY oid"
+      ],
+      null,
+      []
+    ],
+    [
+      "snmp",
+      "22595",
+      "main",
+      "snmp_get",
+      null,
+      "table",
+      "Read specific SNMP instances (GET) from an agent, one row per OID",
+      null,
+      {
+        "vgi.category": "snmp",
+        "vgi.doc_llm": "Send one SNMP GET to the agent at `host` for every OID listed after it and return one row per OID, in argument order: `host, oid, name, object, instance, type, value, value_int, value_bytes`. OIDs are numeric ('1.3.6.1.2.1.1.5.0') or MIB names with an instance suffix ('sysName.0', 'IF-MIB::ifHCInOctets.2'); scalars need the '.0' suffix. A missing object is a row with type 'noSuchObject' or 'noSuchInstance' and NULL values, not an error. Use `value` for display text (enum labels, MAC addresses), `value_int` for arithmetic on counters/gauges/TimeTicks (TimeTicks are hundredths of a second). Connection named arguments: `version` ('1', '2c' or '3'; default '3' when a v3 user is configured, else '2c'), `community`, `port` (default 161; 'host:port' also works), `timeout` (seconds per attempt, default 2), `retries` (default 1) and `context` (SNMPv3 context name). Credentials come from the `community` argument, else from a DuckDB secret of type `snmp` whose SCOPE is a prefix of 'snmp://<host>:<port>', else from the SNMP_COMMUNITY, SNMP_USER, SNMP_AUTH_PROTOCOL, SNMP_AUTH_KEY, SNMP_PRIV_PROTOCOL and SNMP_PRIV_KEY environment variables, else the community 'public'. A v3 secret looks like:\n\n```sql\nCREATE SECRET (TYPE snmp, SCOPE 'snmp://10.0.0.', USER 'monitor', AUTH_PROTOCOL 'sha256',\n  AUTH_KEY 'auth-passphrase', PRIV_PROTOCOL 'aes', PRIV_KEY 'priv-passphrase');\n```\n\nA timeout or wrong credentials raise an error that names the agent.",
+        "vgi.doc_md": "## snmp_get(host, oid, ...)\n\nOne row per requested instance. Missing instances come back as `noSuchObject` / `noSuchInstance` rows.\n\nScalars need the `.0` instance suffix: `sysName.0`, not `sysName`.\n\n**Connection:** `version := '1' | '2c' | '3'`, `community := '...'`, `port := 161`, `timeout := 2.0`, `retries := 1`, `context := ''`. Credentials can also come from a `snmp` secret scoped to `snmp://<host>` or from `SNMP_*` environment variables; see the README.",
+        "vgi.example_queries": "[{\"description\": \"Identify a device by its system group\", \"sql\": \"SELECT object, value FROM snmp.main.snmp_get('192.0.2.10', 'sysName.0', 'sysDescr.0', 'sysLocation.0') ORDER BY object\"}, {\"description\": \"Uptime in days from sysUpTime (hundredths of a second)\", \"sql\": \"SELECT round(value_int / 8640000.0, 1) AS uptime_days FROM snmp.main.snmp_get('192.0.2.10', 'sysUpTime.0', community := 'monitor')\"}, {\"description\": \"One row per device: its name and its platform, the sysObjectID OID named offline with snmp_oid_name (for example 'NET-SNMP-MIB::netSnmpAgentOIDs.10' for a Linux Net-SNMP agent)\", \"sql\": \"SELECT max(value) FILTER (WHERE object = 'sysName') AS sys_name, snmp.main.snmp_oid_name(max(value) FILTER (WHERE object = 'sysObjectID')) AS platform FROM snmp.main.snmp_get('192.0.2.20', 'sysName.0', 'sysObjectID.0')\"}]",
+        "vgi.keywords": "[\"snmp get\", \"snmpget\", \"oid\", \"sysDescr\", \"sysUpTime\", \"read value\", \"network device\", \"monitoring\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"host\", \"type\": \"VARCHAR\", \"description\": \"The agent queried, as given in the host argument.\"}, {\"name\": \"oid\", \"type\": \"VARCHAR\", \"description\": \"Numeric OID of the returned instance.\"}, {\"name\": \"name\", \"type\": \"VARCHAR\", \"description\": \"Symbolic name from the loaded MIBs, e.g. 'SNMPv2-MIB::sysDescr.0'.\"}, {\"name\": \"object\", \"type\": \"VARCHAR\", \"description\": \"The MIB object the instance belongs to, e.g. 'ifInOctets'.\"}, {\"name\": \"instance\", \"type\": \"VARCHAR\", \"description\": \"Instance suffix after the object's OID, e.g. '3'.\"}, {\"name\": \"type\", \"type\": \"VARCHAR\", \"description\": \"SNMP type, or noSuchObject / noSuchInstance.\"}, {\"name\": \"value\", \"type\": \"VARCHAR\", \"description\": \"Display value formatted by the MIB.\"}, {\"name\": \"value_int\", \"type\": \"DECIMAL(20,0)\", \"description\": \"Exact value of integer types.\"}, {\"name\": \"value_bytes\", \"type\": \"BLOB\", \"description\": \"Raw octets of string-like values.\"}]",
+        "vgi.title": "SNMP GET"
+      },
+      null,
+      [
+        "host",
+        "version",
+        "context",
+        "timeout",
+        "retries",
+        "port",
+        "community"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR",
+        "DOUBLE",
+        "BIGINT",
+        "BIGINT",
+        "VARCHAR"
+      ],
+      "VARCHAR",
+      null,
+      null,
+      true,
+      null,
+      22601,
+      [
+        "SELECT object, value FROM snmp.main.snmp_get('192.0.2.10', 'sysName.0', 'sysDescr.0', 'sysLocation.0') ORDER BY object",
+        "SELECT round(value_int / 8640000.0, 1) AS uptime_days FROM snmp.main.snmp_get('192.0.2.10', 'sysUpTime.0', community := 'monitor')",
+        "SELECT max(value) FILTER (WHERE object = 'sysName') AS sys_name, snmp.main.snmp_oid_name(max(value) FILTER (WHERE object = 'sysObjectID')) AS platform FROM snmp.main.snmp_get('192.0.2.20', 'sysName.0', 'sysObjectID.0')"
+      ],
+      null,
+      []
+    ],
+    [
+      "snmp",
+      "22595",
+      "main",
+      "snmp_oid",
+      null,
+      "scalar",
+      "Resolve a MIB name such as 'IF-MIB::ifInOctets.3' to its numeric OID",
+      null,
+      {
+        "vgi.category": "mib",
+        "vgi.doc_llm": "Translate a MIB name to a dotted numeric OID, offline, like `snmptranslate -On`. Accepts 'sysDescr', 'sysDescr.0', 'IF-MIB::ifInOctets.3' or an already numeric OID (returned normalized without a leading dot). Returns NULL for NULL input and for names not in the loaded MIBs. Vectorized: works over a column of names.",
+        "vgi.doc_md": "## snmp_oid(name)\n\n`snmp_oid('IF-MIB::ifInOctets.3')` returns `'1.3.6.1.2.1.2.2.1.10.3'`. NULL for unknown names.",
+        "vgi.example_queries": "[{\"description\": \"The numeric OID of the 64-bit input octet counter column\", \"sql\": \"SELECT snmp.main.snmp_oid('IF-MIB::ifHCInOctets') AS oid\"}, {\"description\": \"Resolve a column of names; unknown names give NULL\", \"sql\": \"SELECT n, snmp.main.snmp_oid(n) AS oid FROM (VALUES ('sysName.0'), ('hrStorageUsed'), ('notAnObject')) t(n) ORDER BY n\"}]",
+        "vgi.executable_examples": "[{\"description\": \"Resolve a column instance\", \"sql\": \"SELECT snmp.main.snmp_oid('IF-MIB::ifInOctets.3') AS oid\", \"expected_result\": [[\"1.3.6.1.2.1.2.2.1.10.3\"]]}, {\"description\": \"Resolve system group scalars\", \"sql\": \"SELECT n, snmp.main.snmp_oid(n) AS oid FROM (VALUES ('sysDescr.0'), ('sysUpTime.0')) t(n) ORDER BY n\", \"expected_result\": [[\"sysDescr.0\", \"1.3.6.1.2.1.1.1.0\"], [\"sysUpTime.0\", \"1.3.6.1.2.1.1.3.0\"]]}]",
+        "vgi.keywords": "[\"oid\", \"translate\", \"snmptranslate\", \"mib name\", \"numeric oid\", \"resolve\"]",
+        "vgi.title": "MIB Name to OID"
+      },
+      "VARCHAR",
+      [
+        "name"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22599,
+      [
+        "SELECT snmp.main.snmp_oid('IF-MIB::ifHCInOctets') AS oid",
+        "SELECT n, snmp.main.snmp_oid(n) AS oid FROM (VALUES ('sysName.0'), ('hrStorageUsed'), ('notAnObject')) t(n) ORDER BY n"
+      ],
+      "CONSISTENT",
+      []
+    ],
+    [
+      "snmp",
+      "22595",
+      "main",
+      "snmp_oid_name",
+      null,
+      "scalar",
+      "Name a numeric OID, e.g. '1.3.6.1.2.1.1.3.0' becomes 'SNMPv2-MIB::sysUpTime.0'",
+      null,
+      {
+        "vgi.category": "mib",
+        "vgi.doc_llm": "Translate a dotted numeric OID to 'MODULE::object.instance' using the loaded MIBs, offline. The deepest named ancestor is used, so an unknown vendor OID still gets a prefix such as 'SNMPv2-SMI::enterprises.9.1.1'. Returns NULL for NULL, non-numeric input, or OIDs outside every loaded MIB.",
+        "vgi.doc_md": "## snmp_oid_name(oid)\n\n`snmp_oid_name('1.3.6.1.2.1.2.2.1.10.3')` returns `'IF-MIB::ifInOctets.3'`.",
+        "vgi.example_queries": "[{\"description\": \"Name the sysUpTime instance\", \"sql\": \"SELECT snmp.main.snmp_oid_name('1.3.6.1.2.1.1.3.0') AS name\"}, {\"description\": \"Name a column of OIDs, including an unknown vendor OID\", \"sql\": \"SELECT oid, snmp.main.snmp_oid_name(oid) AS name FROM (VALUES ('1.3.6.1.2.1.25.2.3.1.6.1'), ('1.3.6.1.4.1.9.1.1')) t(oid) ORDER BY oid\"}, {\"description\": \"Decode numeric OIDs from a trap or log: name each with snmp_oid_name, then join snmp_mib_objects for the object's syntax and UNITS clause (NULL when the MIB declares none)\", \"sql\": \"WITH named AS (SELECT oid, snmp.main.snmp_oid_name(oid) AS name FROM (VALUES ('1.3.6.1.2.1.31.1.1.1.15.3'), ('1.3.6.1.2.1.25.2.3.1.4.1'), ('1.3.6.1.2.1.31.1.1.1.6.3')) t(oid)) SELECT n.oid, n.name, o.syntax, o.units FROM named n JOIN snmp.main.snmp_mib_objects() o ON o.module = split_part(n.name, '::', 1) AND o.name = split_part(split_part(n.name, '::', 2), '.', 1) ORDER BY string_split(n.oid, '.')::INTEGER[]\"}]",
+        "vgi.executable_examples": "[{\"description\": \"Name an interface counter instance\", \"sql\": \"SELECT snmp.main.snmp_oid_name('1.3.6.1.2.1.2.2.1.10.3') AS name\", \"expected_result\": [[\"IF-MIB::ifInOctets.3\"]]}, {\"description\": \"Decode numeric OIDs from a trap or log: name each with snmp_oid_name, then join snmp_mib_objects for the object's syntax and UNITS clause (NULL when the MIB declares none)\", \"sql\": \"WITH named AS (SELECT oid, snmp.main.snmp_oid_name(oid) AS name FROM (VALUES ('1.3.6.1.2.1.31.1.1.1.15.3'), ('1.3.6.1.2.1.25.2.3.1.4.1'), ('1.3.6.1.2.1.31.1.1.1.6.3')) t(oid)) SELECT n.oid, n.name, o.syntax, o.units FROM named n JOIN snmp.main.snmp_mib_objects() o ON o.module = split_part(n.name, '::', 1) AND o.name = split_part(split_part(n.name, '::', 2), '.', 1) ORDER BY string_split(n.oid, '.')::INTEGER[]\", \"expected_result\": [[\"1.3.6.1.2.1.25.2.3.1.4.1\", \"HOST-RESOURCES-MIB::hrStorageAllocationUnits.1\", \"Integer32\", \"Bytes\"], [\"1.3.6.1.2.1.31.1.1.1.6.3\", \"IF-MIB::ifHCInOctets.3\", \"Counter64\", null], [\"1.3.6.1.2.1.31.1.1.1.15.3\", \"IF-MIB::ifHighSpeed.3\", \"Gauge32\", null]]}]",
+        "vgi.keywords": "[\"oid\", \"translate\", \"snmptranslate\", \"mib name\", \"symbolic name\", \"decode oid\"]",
+        "vgi.title": "OID to MIB Name"
+      },
+      "VARCHAR",
+      [
+        "oid"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22600,
+      [
+        "SELECT snmp.main.snmp_oid_name('1.3.6.1.2.1.1.3.0') AS name",
+        "SELECT oid, snmp.main.snmp_oid_name(oid) AS name FROM (VALUES ('1.3.6.1.2.1.25.2.3.1.6.1'), ('1.3.6.1.4.1.9.1.1')) t(oid) ORDER BY oid",
+        "WITH named AS (SELECT oid, snmp.main.snmp_oid_name(oid) AS name FROM (VALUES ('1.3.6.1.2.1.31.1.1.1.15.3'), ('1.3.6.1.2.1.25.2.3.1.4.1'), ('1.3.6.1.2.1.31.1.1.1.6.3')) t(oid)) SELECT n.oid, n.name, o.syntax, o.units FROM named n JOIN snmp.main.snmp_mib_objects() o ON o.module = split_part(n.name, '::', 1) AND o.name = split_part(split_part(n.name, '::', 2), '.', 1) ORDER BY string_split(n.oid, '.')::INTEGER[]"
+      ],
+      "CONSISTENT",
+      []
+    ]
+  ]
+}

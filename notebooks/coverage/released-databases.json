@@ -1,0 +1,47 @@
+{
+  "query": "SELECT * FROM duckdb_databases() WHERE database_name='snmp'",
+  "columns": [
+    "database_name",
+    "database_oid",
+    "path",
+    "comment",
+    "tags",
+    "internal",
+    "type",
+    "readonly",
+    "encrypted",
+    "cipher",
+    "options"
+  ],
+  "rows": [
+    [
+      "snmp",
+      22595,
+      null,
+      "# SNMP for DuckDB\n\n**Read SNMP devices with SQL.** GET instances, walk subtrees and read MIB tables such as `ifXTable` or `hrStorageTable` as typed rows, over SNMP v1, v2c or v3.\n\nMIB names resolve offline against the bundled IETF and Net-SNMP MIB modules, and table schemas come from the MIB, so `DESCRIBE` works without contacting a device.\n\nCredentials come from a `snmp` DuckDB secret scoped by host, so they stay out of queries.",
+      {
+        "vgi.agent_test_tasks": "[{\"name\": \"ifinoctets_oid\", \"prompt\": \"Using the snmp worker, what is the numeric OID of IF-MIB's ifHCInOctets column?\"}, {\"name\": \"oid_to_name\", \"prompt\": \"Which MIB object and instance does the OID 1.3.6.1.2.1.1.3.0 refer to?\"}, {\"name\": \"iftable_columns\", \"prompt\": \"How many columns does the IF-MIB ifTable define, according to the snmp worker's MIBs?\"}, {\"name\": \"counter64_columns\", \"prompt\": \"List the names of the IF-MIB columns whose syntax is Counter64, in OID order.\"}, {\"name\": \"ifxtable_counter_type\", \"prompt\": \"When the snmp worker reads IF-MIB's ifXTable from a device, what DuckDB type does the ifHCInOctets column have? Answer without contacting a device.\"}, {\"name\": \"get_exact_value_column\", \"prompt\": \"Which column of the snmp worker's single-instance GET results holds a counter's exact integer value, and what is its DuckDB type? Answer without contacting a device.\"}, {\"name\": \"walk_result_columns\", \"prompt\": \"How many columns does the snmp worker's subtree walk return? Answer without contacting a device.\"}]",
+        "vgi.author": "Query.Farm",
+        "vgi.copyright": "Copyright 2026 Query Farm LLC - https://query.farm",
+        "vgi.doc_llm": "Query SNMP agents (routers, switches, servers, printers, UPS units) from SQL. Device queries are table functions that take the agent address first and return either raw variable bindings (one row per OID instance, with the MIB name, SNMP type, display value, exact integer and raw octets) or a MIB conceptual table as typed rows, one column per MIB column, where only the columns the query uses are fetched. Offline helpers translate between MIB names and numeric OIDs and list the objects of the loaded MIBs (IF-MIB, IP-MIB, HOST-RESOURCES-MIB, ENTITY-MIB, ENTITY-SENSOR-MIB, UCD-SNMP-MIB, NET-SNMP-MIB and the SNMPv2 core). SNMP v1, v2c and v3 (USM authentication and privacy) are supported. Credentials come from arguments, a host-scoped DuckDB secret of type `snmp`, or SNMP_* environment variables, so they stay out of queries. To poll several devices, UNION ALL one call per host.",
+        "vgi.doc_md": "# SNMP for DuckDB\n\n**Read SNMP devices with SQL.** GET instances, walk subtrees and read MIB tables such as `ifXTable` or `hrStorageTable` as typed rows, over SNMP v1, v2c or v3.\n\nMIB names resolve offline against the bundled IETF and Net-SNMP MIB modules, and table schemas come from the MIB, so `DESCRIBE` works without contacting a device.\n\nCredentials come from a `snmp` DuckDB secret scoped by host, so they stay out of queries.",
+        "vgi.icon_url": "https://query.farm/media-kit/products/vgi/vgi-logo.png",
+        "vgi.keywords": "[\"snmp\", \"snmpwalk\", \"snmpget\", \"mib\", \"network monitoring\", \"routers\", \"switches\", \"interfaces\", \"ifTable\", \"duckdb\"]",
+        "vgi.license": "0BSD",
+        "vgi.source_url": "https://github.com/Query-farm/vgi-snmp",
+        "vgi.subtitle": "Query SNMP v1/v2c/v3 devices from SQL: GET, WALK and MIB tables as typed rows.",
+        "vgi.support_contact": "https://github.com/Query-farm/vgi-snmp/issues",
+        "vgi.support_policy_url": "https://github.com/Query-farm/vgi-snmp#support",
+        "vgi.title": "SNMP Devices"
+      },
+      false,
+      "vgi",
+      false,
+      false,
+      null,
+      {
+        "location": "uvx --from git+https://github.com/Query-farm/vgi-snmp@v0.1.0 vgi-snmp-worker"
+      }
+    ]
+  ]
+}
