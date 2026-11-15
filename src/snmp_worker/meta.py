@@ -100,8 +100,20 @@ CATALOG_DOC_MD = (
     "`ifXTable` or `hrStorageTable` as typed rows, over SNMP v1, v2c or v3.\n\n"
     "MIB names resolve offline against the bundled IETF and Net-SNMP MIB modules, and table "
     "schemas come from the MIB, so `DESCRIBE` works without contacting a device.\n\n"
-    "Credentials come from a `snmp` DuckDB secret scoped by host, so they stay out of queries."
+    "Credentials come from a `snmp` DuckDB secret scoped by host, so they stay out of queries.\n\n"
+    "## Sources and references\n\n"
+    "- [RFC 3416](https://www.rfc-editor.org/rfc/rfc3416): SNMPv2 protocol operations "
+    "(GET, GETNEXT, GETBULK) and [RFC 3414](https://www.rfc-editor.org/rfc/rfc3414): the "
+    "SNMPv3 User-based Security Model behind v3 authentication and privacy.\n"
+    "- [RFC 2863](https://www.rfc-editor.org/rfc/rfc2863): IF-MIB, the interface tables "
+    "(`ifTable`, `ifXTable`) most device queries read.\n"
+    "- [Net-SNMP](http://www.net-snmp.org/): source of the bundled UCD-SNMP-MIB and NET-SNMP-MIB "
+    "modules.\n"
+    "- [PySNMP](https://docs.lextudio.com/pysnmp/): the SNMP engine the worker runs on."
 )
+
+# The schema's one-line comment; the richer Markdown lives in ``SCHEMA_DOC_MD`` (VGI102).
+SCHEMA_COMMENT = "SNMP device queries (GET, walk, MIB tables) and offline MIB name and OID lookups."
 
 SCHEMA_DOC_LLM = (
     "The `main` schema holds the SNMP functions. Device queries take the agent address as their first "

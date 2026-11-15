@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2 (2026-11-14)
+
+- Docs link to upstream sources: the catalog docs now link RFC 3416, RFC 3414, RFC 2863,
+  Net-SNMP and PySNMP (vgi-lint VGI183).
+- The `main` schema comment is now a one-line summary; its Markdown docs no longer repeat it
+  (vgi-lint VGI102).
+
 ## 0.1.1 (2026-11-14)
 
 - The catalog comment (the worker's one-line description in directories) is now a short
