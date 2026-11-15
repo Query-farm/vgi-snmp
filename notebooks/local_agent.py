@@ -2,9 +2,9 @@
 
 import atexit
 import os
+import shutil
 import socket
 import subprocess
-import sys
 import time
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -37,18 +37,32 @@ class LocalAgent:
             self.port = sock.getsockname()[1]
         self.host = f"127.0.0.1:{self.port}"
         command = [
-            sys.executable,
-            "-m",
-            "snmpsim.commands.responder",
+            shutil.which("uvx") or "uvx",
+            "--python",
+            "3.13",
+            "--with",
+            "pysmi==1.6.2",
+            "--with",
+            "pysnmp==7.1.32",
+            "--with",
+            "cryptography==50.0.2",
+            "--from",
+            "snmpsim==1.2.2",
+            "snmpsim-command-responder",
             f"--data-dir={Path(__file__).resolve().parent / 'fixtures'}",
             f"--cache-dir={self.work.name}/cache",
             f"--agent-udpv4-endpoint={self.host}",
             "--logging-method=stderr",
             "--log-level=error",
         ]
+        # Colab kernels may run as root. The simulator's supported opt-in is
+        # confined to this fixed loopback child, never the notebook environment.
+        child_env = os.environ.copy()
+        if hasattr(os, "geteuid") and os.geteuid() == 0:
+            child_env["SNMPSIM_ALLOW_ROOT"] = "true"
         try:
-            self.process = subprocess.Popen(command, stdout=self.log, stderr=subprocess.STDOUT)
-            deadline = time.monotonic() + 60
+            self.process = subprocess.Popen(command, stdout=self.log, stderr=subprocess.STDOUT, env=child_env)
+            deadline = time.monotonic() + 120
             while time.monotonic() < deadline:
                 if self.process.poll() is not None:
                     self.log.seek(0)
@@ -61,7 +75,7 @@ class LocalAgent:
                         return
                     except TimeoutError:
                         pass
-            raise TimeoutError("Local synthetic SNMP agent did not answer within 60 seconds")
+            raise TimeoutError("Local synthetic SNMP agent did not answer within 120 seconds")
         except BaseException:
             self.close()
             raise
@@ -71,6 +85,7 @@ class LocalAgent:
         if self.closed:
             return
         self.closed = True
+        atexit.unregister(self.close)
         if self.process is not None and self.process.poll() is None:
             self.process.terminate()
             try:
