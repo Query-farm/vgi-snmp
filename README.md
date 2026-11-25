@@ -36,13 +36,15 @@ SELECT object, value FROM snmp.main.snmp_get('10.0.0.1', 'sysName.0', 'sysDescr.
 **Prerequisites:** [uv](https://docs.astral.sh/uv/) and DuckDB 2.0 (or
 [Haybarn](https://query.farm/products/haybarn)).
 
+vgi-snmp 0.2.0 speaks VGI protocol 3.4, so it needs Haybarn 2.0.1 or newer (Haybarn 2.0.0 loads a 3.3 `vgi` extension that cannot attach it).
+
 ```sql
 SET allow_extension_repositories = 'allowed';
 CREATE EXTENSION REPOSITORY IF NOT EXISTS query_farm WITH PREFIX 'https://duckdb-extensions.query.farm';
 INSTALL vgi FROM query_farm;
 LOAD vgi FROM query_farm;
 
-ATTACH 'snmp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-snmp@v0.1.3 vgi-snmp-worker');
+ATTACH 'snmp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-snmp@v0.2.0 vgi-snmp-worker');
 ```
 
 On Haybarn use `INSTALL vgi FROM community; LOAD vgi;` instead of the first four lines.
