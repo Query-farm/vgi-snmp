@@ -36,13 +36,15 @@ SELECT object, value FROM snmp.main.snmp_get('10.0.0.1', 'sysName.0', 'sysDescr.
 **Prerequisites:** [uv](https://docs.astral.sh/uv/) and DuckDB 2.0 (or
 [Haybarn](https://query.farm/products/haybarn)).
 
+vgi-snmp 0.2.0 speaks VGI protocol 3.4, so it needs Haybarn 2.0.1 or newer (Haybarn 2.0.0 loads a 3.3 `vgi` extension that cannot attach it).
+
 ```sql
 SET allow_extension_repositories = 'allowed';
 CREATE EXTENSION REPOSITORY IF NOT EXISTS query_farm WITH PREFIX 'https://duckdb-extensions.query.farm';
 INSTALL vgi FROM query_farm;
 LOAD vgi FROM query_farm;
 
-ATTACH 'snmp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-snmp@v0.1.3 vgi-snmp-worker');
+ATTACH 'snmp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-snmp@v0.2.0 vgi-snmp-worker');
 ```
 
 On Haybarn use `INSTALL vgi FROM community; LOAD vgi;` instead of the first four lines.
@@ -134,17 +136,18 @@ SELECT 'core2', * FROM snmp.main.snmp_table('10.0.0.2', 'ifXTable');
 
 ## Credentials
 
-Keep credentials out of queries with a DuckDB secret of type `snmp`. Its `SCOPE` is
-matched as a prefix of `snmp://<host>:<port>`, and the longest match wins, so one secret
-can cover a single agent (`'snmp://10.0.0.1:'`), a subnet (`'snmp://10.0.0.'`) or
-everything (`'snmp://'`):
+Keep credentials out of queries with a DuckDB secret of type `snmp`. Its `SCOPE` names
+one agent (`'snmp://10.0.0.1:161'`), every port on a host (`'snmp://10.0.0.1'`) or
+everything (`'snmp://'`); the agent's own secret wins over the host's. A `SCOPE` may
+hold several of these. Partial-address prefixes such as `'snmp://10.0.0.'` match
+nothing: DuckDB 2.0.1 ends a scope that is only `scheme://host` at the host boundary.
 
 ```sql
--- v2c community for one subnet.
-CREATE SECRET lab (TYPE snmp, SCOPE 'snmp://10.0.0.', COMMUNITY 'lab-ro');
+-- v2c community for two lab agents.
+CREATE SECRET lab (TYPE snmp, SCOPE ('snmp://10.0.0.1', 'snmp://10.0.0.2'), COMMUNITY 'lab-ro');
 
--- SNMPv3 authPriv for the core routers. The version defaults to 3 once a user is set.
-CREATE SECRET core (TYPE snmp, SCOPE 'snmp://10.1.0.',
+-- SNMPv3 authPriv for the core router. The version defaults to 3 once a user is set.
+CREATE SECRET core (TYPE snmp, SCOPE 'snmp://10.1.0.1',
     USER 'monitor', AUTH_PROTOCOL 'sha256', AUTH_KEY 'auth-passphrase',
     PRIV_PROTOCOL 'aes', PRIV_KEY 'priv-passphrase');
 ```

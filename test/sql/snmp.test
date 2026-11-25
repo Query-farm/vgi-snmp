@@ -275,7 +275,7 @@ ifHCInUcastPkts	1.3.6.1.2.1.31.1.1.1.7.7
 # ---------------------------------------------------------------- credentials from secrets
 
 statement ok
-CREATE SECRET snmp_private (TYPE snmp, SCOPE 'snmp://127.0.0.1:', COMMUNITY 'private');
+CREATE SECRET snmp_private (TYPE snmp, SCOPE 'snmp://127.0.0.1', COMMUNITY 'private');
 
 query T
 SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0');
@@ -290,7 +290,7 @@ edge-router-1
 
 # A secret scoped to another host does not apply.
 statement ok
-CREATE OR REPLACE SECRET snmp_private (TYPE snmp, SCOPE 'snmp://192.0.2.99:', COMMUNITY 'private');
+CREATE OR REPLACE SECRET snmp_private (TYPE snmp, SCOPE 'snmp://192.0.2.99', COMMUNITY 'private');
 
 query T
 SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0');
@@ -302,7 +302,7 @@ DROP SECRET snmp_private;
 
 # SNMPv3 authPriv; the version defaults to 3 once a user is configured.
 statement ok
-CREATE SECRET snmp_v3 (TYPE snmp, SCOPE 'snmp://127.0.0.1:', USER 'simulator', AUTH_PROTOCOL 'sha', AUTH_KEY 'auctoritas', PRIV_PROTOCOL 'aes', PRIV_KEY 'privatus');
+CREATE SECRET snmp_v3 (TYPE snmp, SCOPE 'snmp://127.0.0.1', USER 'simulator', AUTH_PROTOCOL 'sha', AUTH_KEY 'auctoritas', PRIV_PROTOCOL 'aes', PRIV_KEY 'privatus');
 
 query T
 SELECT value FROM snmp.main.snmp_get('{SNMP_AGENT}', 'sysName.0', context := 'public');

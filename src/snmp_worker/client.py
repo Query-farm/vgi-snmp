@@ -5,8 +5,8 @@ private event loop in a daemon thread, so a single ``SnmpEngine`` (with its USM
 engine-ID discovery cache) is shared by every query in the process.
 
 Credentials resolve per target, in this order: the function's ``community`` argument,
-then a DuckDB secret of type ``snmp`` whose ``SCOPE`` is a prefix of
-``snmp://<host>:<port>``, then the ``SNMP_*`` environment variables, then the
+then a DuckDB secret of type ``snmp`` scoped to ``snmp://<host>:<port>`` (the agent),
+``snmp://<host>`` (every port on the host) or ``snmp://``, then the ``SNMP_*`` environment variables, then the
 community ``public``. Credentials are never written to table-function state.
 """
 
@@ -61,12 +61,12 @@ PRIV_PROTOCOLS: dict[str, Any] = {
 
 _REDACT = {"redact": "true"}
 
-# Registered with DuckDB: CREATE SECRET (TYPE snmp, SCOPE 'snmp://10.0.0.', COMMUNITY '...').
+# Registered with DuckDB: CREATE SECRET (TYPE snmp, SCOPE 'snmp://10.0.0.1', COMMUNITY '...').
 SNMP_SECRET_TYPE = SecretTypeSpec(
     name=SECRET_TYPE,
     description=(
         "SNMP credentials: a v1/v2c community or SNMPv3 USM user. SCOPE is matched as a "
-        "prefix of 'snmp://<host>:<port>', so one secret can cover a host, a subnet or all agents."
+        "'snmp://<host>' (every port on a host), 'snmp://<host>:<port>' (one agent) or 'snmp://' (all agents)."
     ),
     schema=pa.schema(
         [
@@ -109,9 +109,26 @@ class Target:
 
     @property
     def scope(self) -> str:
-        """The path DuckDB secret scopes are matched against."""
+        """The exact path DuckDB secret scopes are matched against: ``snmp://<host>:<port>``."""
+        return f"{self.host_scope}:{self.port}"
+
+    @property
+    def host_scope(self) -> str:
+        """The host-wide path, ``snmp://<host>``.
+
+        DuckDB 2.0.1 (duckdb#28684) treats an authority-only scope such as
+        ``snmp://10.0.0.1`` as ending in an implicit ``/``: it matches
+        ``snmp://10.0.0.1`` and ``snmp://10.0.0.1/...`` but no longer
+        ``snmp://10.0.0.1:161``. So a host-wide secret is looked up at this
+        path as well as at :attr:`scope`.
+        """
         host = f"[{self.host}]" if self.ipv6 else self.host
-        return f"snmp://{host}:{self.port}"
+        return f"snmp://{host}"
+
+    @property
+    def scopes(self) -> tuple[str, str]:
+        """Lookup paths, most specific first: the agent, then its host."""
+        return (self.scope, self.host_scope)
 
     def __str__(self) -> str:
         """``host:port`` for messages."""

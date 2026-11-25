@@ -7,6 +7,7 @@ from typing import Annotated, Any, Protocol
 
 import pyarrow as pa
 from vgi.arguments import Arg
+from vgi.table_function import scope_matches
 
 from .client import SECRET_TYPE as SECRET_TYPE
 from .client import VERSIONS, Session, SnmpError, parse_target, resolve_credentials
@@ -56,13 +57,35 @@ class _Secrets(Protocol):
 def request_secret(params: Any) -> None:
     """At bind: ask DuckDB for the ``snmp`` secret scoped to this target."""
     target = parse_target(params.args.host, params.args.port)
-    params.secrets.get(SECRET_TYPE, scope=target.scope)
+    for scope in target.scopes:
+        params.secrets.get(SECRET_TYPE, scope=scope)
+
+
+def _match_length(secret: dict[str, Any] | None, path: str) -> int:
+    """Length of the longest scope of ``secret`` that covers ``path`` (as DuckDB decides), else -1."""
+    if secret is None:
+        return -1
+    raw: Any = secret.get("scope")
+    if isinstance(raw, pa.Scalar):
+        raw = raw.as_py()
+    scopes = str(raw or "").split("\n")
+    return max((len(p) for p in scopes if p and scope_matches(p, path)), default=-1)
 
 
 def open_session(args: ConnectionArgs, secrets: _Secrets) -> Session:
     """Build a session from the arguments and the secret resolved for the target."""
     target = parse_target(args.host, args.port)
-    secret = secrets.lookup(SECRET_TYPE, scope=target.scope)
+    # Look the secret up at the agent path and at the host path. lookup() falls
+    # back to an unscoped secret, so keep the result whose scope matched its
+    # path with the longest prefix: the agent's own secret, then the host's,
+    # then 'snmp://', then an unscoped one.
+    secret: dict[str, Any] | None = None
+    best = -2
+    for path in target.scopes:
+        found = secrets.lookup(SECRET_TYPE, scope=path)
+        score = _match_length(found, path)
+        if found is not None and score > best:
+            secret, best = found, score
     credentials = resolve_credentials(version=args.version, community=args.community, secret=secret)
     return Session(
         target=target, credentials=credentials, timeout=args.timeout, retries=args.retries, context=args.context

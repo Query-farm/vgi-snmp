@@ -59,10 +59,11 @@ CONNECTION_DOC_LLM = (
     "configured, else '2c'), `community`, `port` (default 161; 'host:port' also works), `timeout` "
     "(seconds per attempt, default 2), `retries` (default 1) and `context` (SNMPv3 context name). "
     "Credentials come from the `community` argument, else from a DuckDB secret of type `snmp` whose "
-    "SCOPE is a prefix of 'snmp://<host>:<port>', else from the SNMP_COMMUNITY, SNMP_USER, "
+    "SCOPE is 'snmp://<host>:<port>' (one agent), 'snmp://<host>' (every port on the host) or "
+    "'snmp://' (all agents), else from the SNMP_COMMUNITY, SNMP_USER, "
     "SNMP_AUTH_PROTOCOL, SNMP_AUTH_KEY, SNMP_PRIV_PROTOCOL and SNMP_PRIV_KEY environment variables, "
     "else the community 'public'. A v3 secret looks like:\n\n"
-    "```sql\nCREATE SECRET (TYPE snmp, SCOPE 'snmp://10.0.0.', USER 'monitor', AUTH_PROTOCOL 'sha256',\n"
+    "```sql\nCREATE SECRET (TYPE snmp, SCOPE 'snmp://10.0.0.1', USER 'monitor', AUTH_PROTOCOL 'sha256',\n"
     "  AUTH_KEY 'auth-passphrase', PRIV_PROTOCOL 'aes', PRIV_KEY 'priv-passphrase');\n```\n\n"
     "A timeout or wrong credentials raise an error that names the agent."
 )

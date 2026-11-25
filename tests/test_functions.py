@@ -57,6 +57,8 @@ def test_parse_target(text: str, port: int | None, expected: tuple[str, int, boo
 def test_parse_target_scope_and_errors() -> None:
     assert parse_target("10.0.0.1", None).scope == "snmp://10.0.0.1:161"
     assert parse_target("[::1]:162", None).scope == "snmp://[::1]:162"
+    assert parse_target("10.0.0.1", None).scopes == ("snmp://10.0.0.1:161", "snmp://10.0.0.1")
+    assert parse_target("[::1]:162", None).host_scope == "snmp://[::1]"
     for bad in ["", "h:0", "h:x", "[::1", "[::1]x"]:
         with pytest.raises(SnmpError):
             parse_target(bad, None)
@@ -235,3 +237,31 @@ def test_mib_objects_through_worker(client: Client) -> None:
     modules = set(everything.column("module").to_pylist())
     assert {"IF-MIB", "HOST-RESOURCES-MIB", "UCD-SNMP-MIB"} <= modules
     assert not any(str(m).startswith(("__", "PYSNMP-")) for m in modules)
+
+
+def test_open_session_prefers_agent_then_host_secret() -> None:
+    """DuckDB 2.0.1 scopes: the agent's secret beats the host's, which beats 'snmp://' and unscoped."""
+    import pyarrow as pa
+    from vgi.table_function import ResolvedSecrets
+
+    from snmp_worker.common import ConnectionArgs, open_session
+
+    def secret(scope: str, community: str) -> dict[str, pa.Scalar[Any]]:
+        return {"type": pa.scalar("snmp"), "scope": pa.scalar(scope), "community": pa.scalar(community)}
+
+    def community_for(target: str, **secrets: dict[str, pa.Scalar[Any]]) -> str | None:
+        resolved = ResolvedSecrets()
+        for name, fields in secrets.items():
+            resolved[name] = fields
+        args = ConnectionArgs(host=target, version="2c", community=None, port=None, timeout=1.0, retries=0, context="")
+        return open_session(args, resolved).credentials.community
+
+    every = secret("snmp://", "every")
+    host = secret("snmp://10.0.0.1", "host")
+    agent = secret("snmp://10.0.0.1:161", "agent")
+    unscoped = secret("", "unscoped")
+    assert community_for("10.0.0.1", unscoped=unscoped, every=every, host=host, agent=agent) == "agent"
+    assert community_for("10.0.0.1", unscoped=unscoped, every=every, host=host) == "host"
+    assert community_for("10.0.0.1:1161", unscoped=unscoped, every=every, host=host, agent=agent) == "host"
+    assert community_for("10.0.0.15", unscoped=unscoped, every=every, host=host, agent=agent) == "every"
+    assert community_for("10.0.0.15", unscoped=unscoped, host=host) == "unscoped"
